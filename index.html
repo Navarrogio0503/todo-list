@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My To-Do List</title>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+
+            background:
+                radial-gradient(circle at 10% 20%, #ff9a9e 0%, transparent 25%),
+                radial-gradient(circle at 90% 20%, #a18cd1 0%, transparent 25%),
+                radial-gradient(circle at 20% 90%, #84fab0 0%, transparent 25%),
+                radial-gradient(circle at 80% 90%, #8fd3f4 0%, transparent 25%),
+                linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        body::before,
+        body::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(2px);
+            opacity: 0.5;
+        }
+
+        body::before {
+            width: 250px;
+            height: 250px;
+            background: #ffffff;
+            top: -80px;
+            left: -80px;
+        }
+
+        body::after {
+            width: 300px;
+            height: 300px;
+            background: #ffddff;
+            bottom: -120px;
+            right: -100px;
+        }
+
+        .todo-container {
+            position: relative;
+            z-index: 2;
+            width: 430px;
+            padding: 30px;
+
+            background: rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+
+            box-shadow:
+                0 20px 50px rgba(0, 0, 0, 0.25),
+                inset 0 1px 1px rgba(255, 255, 255, 0.4);
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 32px;
+            margin-bottom: 8px;
+            text-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #taskInput {
+            flex: 1;
+            padding: 14px 16px;
+            border: none;
+            outline: none;
+            border-radius: 12px;
+
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            font-size: 14px;
+        }
+
+        #taskInput::placeholder {
+            color: #999;
+        }
+
+        #addBtn {
+            padding: 12px 18px;
+            border: none;
+            border-radius: 12px;
+
+            background: linear-gradient(135deg, #ff758c, #ff7eb3);
+            color: white;
+
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        #addBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(255, 117, 140, 0.4);
+        }
+
+        ul {
+            list-style: none;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            background: rgba(255,255,255,0.85);
+            padding: 13px;
+
+            margin-bottom: 10px;
+            border-radius: 12px;
+
+            transition: 0.3s;
+        }
+
+        li:hover {
+            transform: translateX(4px);
+            background: white;
+        }
+
+        li span {
+            flex: 1;
+            color: #333;
+            cursor: pointer;
+        }
+
+        li.completed span {
+            text-decoration: line-through;
+            color: #999;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .delete-btn {
+            border: none;
+            background: #ff4d6d;
+            color: white;
+
+            padding: 7px 11px;
+            border-radius: 8px;
+
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .delete-btn:hover {
+            background: #d90429;
+            transform: scale(1.05);
+        }
+
+        ul::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ul::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.6);
+            border-radius: 10px;
+        }
+
+        .status {
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            margin-top: 15px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 500px) {
+            .todo-container {
+                width: 90%;
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="todo-container">
+
+        <h1>✨ My To-Do List</h1>
+        <p class="subtitle">Stay organized and get things done!</p>
+
+        <div class="input-area">
+            <input
+                type="text"
+                id="taskInput"
+                placeholder="What do you need to do?"
+            >
+
+            <button id="addBtn">Add</button>
+        </div>
+
+        <ul id="taskList"></ul>
+
+        <p class="status" id="status">Connecting to database...</p>
+
+    </div>
+
+    <script>
+
+        // ==========================================
+        // SUPABASE CONNECTION
+        // ==========================================
+
+        const SUPABASE_URL =
+            "https://pyqtmjwhptbhoeabdaud.supabase.co";
+
+        const SUPABASE_PUBLISHABLE_KEY =
+            "sb_publishable_CRdP19eewZfdG_hte6gHbQ_1vEapR1s";
+
+        const supabaseClient = window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_PUBLISHABLE_KEY
+        );
+
+
+        // ==========================================
+        // HTML ELEMENTS
+        // ==========================================
+
+        const taskInput = document.getElementById("taskInput");
+        const addBtn = document.getElementById("addBtn");
+        const taskList = document.getElementById("taskList");
+        const statusText = document.getElementById("status");
+
+
+        // ==========================================
+        // LOAD TASKS WHEN PAGE OPENS
+        // ==========================================
+
+        document.addEventListener("DOMContentLoaded", loadTasks);
+
+
+        // ==========================================
+        // ADD TASK BUTTON
+        // ==========================================
+
+        addBtn.addEventListener("click", addTask);
+
+
+        // ==========================================
+        // ENTER KEY
+        // ==========================================
+
+        taskInput.addEventListener("keypress", function(event) {
+
+            if (event.key === "Enter") {
+                addTask();
+            }
+
+        });
+
+
+        // ==========================================
+        // LOAD TASKS FROM SUPABASE
+        // ==========================================
+
+        async function loadTasks() {
+
+            statusText.textContent = "Loading tasks...";
+
+            const { data, error } = await supabaseClient
+                .from("todos")
+                .select("*")
+                .order("created_at", { ascending: true });
+
+
+            if (error) {
+
+                console.error(error);
+
+                statusText.textContent =
+                    "Database error: " + error.message;
+
+                return;
+            }
+
+
+            taskList.innerHTML = "";
+
+            data.forEach(task => {
+
+                createTaskElement(task);
+
+            });
+
+
+            statusText.textContent =
+                `${data.length} task(s) loaded from Supabase`;
+
+        }
+
+
+        // ==========================================
+        // ADD TASK
+        // ==========================================
+
+        async function addTask() {
+
+            const taskText = taskInput.value.trim();
+
+            if (taskText === "") {
+
+                alert("Please enter a task.");
+
+                return;
+            }
+
+
+            addBtn.disabled = true;
+
+            addBtn.textContent = "Saving...";
+
+
+            const { data, error } = await supabaseClient
+                .from("todos")
+                .insert([
+                    {
+                        task: taskText,
+                        completed: false
+                    }
+                ])
+                .select()
+                .single();
+
+
+            if (error) {
+
+                console.error(error);
+
+                alert("Could not save task: " + error.message);
+
+                addBtn.disabled = false;
+                addBtn.textContent = "Add";
+
+                return;
+            }
+
+
+            createTaskElement(data);
+
+
+            taskInput.value = "";
+            taskInput.focus();
+
+
+            addBtn.disabled = false;
+            addBtn.textContent = "Add";
+
+        }
+
+
+        // ==========================================
+        // CREATE TASK ON SCREEN
+        // ==========================================
+
+        function createTaskElement(task) {
+
+            const li = document.createElement("li");
+
+            if (task.completed) {
+
+                li.classList.add("completed");
+
+            }
+
+
+            const checkbox = document.createElement("input");
+
+            checkbox.type = "checkbox";
+
+            checkbox.checked = task.completed;
+
+
+            const span = document.createElement("span");
+
+            span.textContent = task.task;
+
+
+            const deleteBtn = document.createElement("button");
+
+            deleteBtn.textContent = "Delete";
+
+            deleteBtn.className = "delete-btn";
+
+
+            // COMPLETE TASK
+
+            checkbox.addEventListener("change", async function() {
+
+                const completed = checkbox.checked;
+
+                li.classList.toggle(
+                    "completed",
+                    completed
+                );
+
+
+                const { error } = await supabaseClient
+                    .from("todos")
+                    .update({
+                        completed: completed
+                    })
+                    .eq("id", task.id);
+
+
+                if (error) {
+
+                    console.error(error);
+
+                    alert(
+                        "Could not update task: " +
+                        error.message
+                    );
+
+                    checkbox.checked = !completed;
+
+                    li.classList.toggle(
+                        "completed",
+                        !completed
+                    );
+
+                }
+
+            });
+
+
+            // DELETE TASK
+
+            deleteBtn.addEventListener("click", async function() {
+
+                const confirmed =
+                    confirm("Delete this task?");
+
+
+                if (!confirmed) {
+                    return;
+                }
+
+
+                const { error } = await supabaseClient
+                    .from("todos")
+                    .delete()
+                    .eq("id", task.id);
+
+
+                if (error) {
+
+                    console.error(error);
+
+                    alert(
+                        "Could not delete task: " +
+                        error.message
+                    );
+
+                    return;
+                }
+
+
+                li.remove();
+
+            });
+
+
+            li.appendChild(checkbox);
+            li.appendChild(span);
+            li.appendChild(deleteBtn);
+
+            taskList.appendChild(li);
+
+        }
+
+    </script>
+
+</body>
+</html>
